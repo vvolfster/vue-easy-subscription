@@ -6,6 +6,10 @@ Quick and modular subscriptions for vue!
 	
 	npm i vue-easy-subscription
 
+    // This module requires that Vue and Vuex as peer dependencies!
+    // npm i vue
+    // npm i vuex
+
 # Initialization
 You can initialize the plugin in one of the following ways:
 
