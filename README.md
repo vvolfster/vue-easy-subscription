@@ -13,7 +13,7 @@ You can initialize the plugin in one of the following ways:
 ```javascript
 import vueEasySub from "vue-easy-subscription"
 import Vue from "vue"
-import Firebase from "firebase
+import Firebase from "firebase"
 
 Firebase.initializeApp({ ... your appConfig })
 
@@ -24,7 +24,7 @@ Vue.use(vueEasySub, { firestore: Firebase.firestore() })
 ```javascript
 import vueEasySub from "vue-easy-subscription"
 import Vue from "vue"
-import Firebase from "firebase
+import Firebase from "firebase"
 
 Firebase.initializeApp({ ... your appConfig })
 
