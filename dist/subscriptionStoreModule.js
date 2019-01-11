@@ -11,7 +11,8 @@ function getStore(subFunction) {
         unsubFns: {}
     }
 
-    const subscriptionStore = new Vuex.Store({
+    return {
+        namespaced: true,
         state: {
             valueByPath: {},
         },
@@ -69,9 +70,7 @@ function getStore(subFunction) {
             SET_VALUE: (state, { path, value }) => Vue.set(state.valueByPath, path, value),
             DELETE_VALUE: (state, { path }) => Vue.delete(state.valueByPath, path),
         }
-    })
-
-    return subscriptionStore
+    }
 }
 
 

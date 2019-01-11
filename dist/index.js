@@ -1,6 +1,7 @@
 import lodash from "lodash"
+import Vuex from "vuex"
 import Stringify from "json-stable-stringify"
-import SubscriptionStore from "./subscriptionStore"
+import subscriptionStoreModule from "./subscriptionStoreModule"
 import * as builtin from "./builtin"
 
 const HELPERS = {
@@ -16,10 +17,125 @@ const HELPERS = {
         const flatInstancesArr = lodash.values(subs)
         return flatInstancesArr
     },
-}
+    getMixin(VARS, store, name) {
+        function dispatch(instance, action, args) {
+            if(store) {
+                return store.dispatch(`${name}/${action}`, args)
+            }
 
-export default {
-    install(Vue, opts) {
+            if(instance && instance.$store) {
+                return instance.$store.dispatch(`${name}/${action}`, args)
+            }
+
+            return Promise.reject(new Error(`Cannot ${name}/${action} because there is no store present`))
+        }
+
+        function allGetters(instance) {
+            if(store) {
+                return store.getters[`${name}/all`]
+            }
+
+            if(instance && instance.$store) {
+                return instance.$store.getters[`${name}/all`]
+            }
+
+            throw new Error(`Cannot get all getters from ${name} because there is no store present`)
+        }
+
+
+        const mixin = {
+            data() {
+                return {
+                    [VARS.dSubs]: {
+                        destroyed: false,
+                        keys: [],
+                        subscriptions: []
+                    }
+                }
+            },
+            watch: {
+                [VARS.$subs]: {
+                    immediate: true,
+                    handler(v, ov) {
+                        if(lodash.isEqual(v, ov) || (!v && !ov)) {
+                            return
+                        }
+
+                        const dSubs = this[VARS.dSubs]
+                        try {
+                            const flattened = HELPERS.toFlat(v)
+                            if(!lodash.isEqual(flattened, dSubs.subscriptions)) {
+                                dSubs.keys = lodash.keys(v)
+                                dSubs.subscriptions = flattened
+                            }
+                        } catch(e) {
+                            console.error(`Could not form subscriptions`)
+                            throw e
+                        }
+                    }
+                },
+                [VARS.dSubs_subscriptions]: {
+                    immediate: true,
+                    async handler(v, ov) {
+                        if(lodash.isEqual(v, ov) || (!v && !ov)) {
+                            return
+                        }
+
+                        const instanceId = lodash.get(this, "_uid")
+                        try {
+                            const addSubs = lodash.differenceWith(v, ov, lodash.isEqual)
+                            const removeSubs = lodash.differenceWith(ov, v, lodash.isEqual)
+
+                            if(removeSubs.length) {
+                                const unsubPromises = removeSubs.map(path => dispatch(this, `unsubscribe`, { instanceId,  path }))
+                                await Promise.all(unsubPromises)
+                            }
+                            if(addSubs.length) {
+                                const subPromises = addSubs.map(path => dispatch(this, `subscribe`, { instanceId,  path }))
+                                await Promise.all(subPromises)
+                            }
+                        } catch(e) {
+                            console.error("Failed to sub or unsub. Resetting $subs instance", this[VARS.$subs])
+                            this[VARS.dSubs].subscriptions = []
+                            throw e
+                        }
+                    }
+                }
+            },
+            beforeDestroy() {
+                const dSubs = this[VARS.dSubs]
+                dSubs.destroyed = true
+                if (dSubs.subscriptions) {
+                    const instanceId = lodash.get(this, "_uid")
+                    lodash.each(dSubs.subscriptions, path => dispatch(this, `unsubscribe`, { instanceId,  path }))
+                }
+            },
+            computed: {
+                [VARS.$subData]() {
+                    const { destroyed, keys, subscriptions } = this[VARS.dSubs]
+                    if(destroyed || !subscriptions || !subscriptions.length || !keys || !keys.length) {
+                        return {}
+                    }
+
+                    const data = {}
+                    const storeData = allGetters(this)
+                    lodash.each(subscriptions, (v, idx) => {
+                        try {
+                            const path = lodash.isObject(v) ? Stringify(v) : v
+                            const key = keys[idx]
+                            data[key] = storeData[path]
+                        } catch(e) {
+                            console.error(e)
+                        }
+                    })
+                    return data
+                }
+            }
+        }
+
+        return mixin
+    },
+    getMods(opts) {
         const err = [
             `Cannot install subscription module because the opts to install this plugin are incorrect!`,
             `You can use one of the preconfigured subscription functions as:`,
@@ -65,9 +181,20 @@ export default {
             throw new Error(err)
         }
 
-        lodash.each(mods, ({ name, subFn }) => {
+        return mods
+    }
+}
+
+export default {
+    getVuexStoreModules(Vue, opts) {
+        const mods = HELPERS.getMods(opts)
+        const modules = lodash.reduce(mods, (acc, { name, subFn }) => {
+            acc[name || '$subs'] = subscriptionStoreModule(subFn)
+            return acc
+        }, {})
+
+        lodash.each(mods, ({ name }) => {
             // create new store for subscriptions
-            const subscriptionStore = SubscriptionStore(subFn)
             const VARS = {
                 dSubs: name ? `${name}_dSubs` : `dSubs`,
                 $subs: name ? `$${name}_subs` : `$subs`,
@@ -75,99 +202,30 @@ export default {
                 dSubs_subscriptions: name ? `${name}_dSubs.subscriptions` : `dSubs.subscriptions`
             }
 
+            Vue.mixin(HELPERS.getMixin(VARS, null, name || '$subs'))
+        })
 
-            // create a mixin!
-            const mixin = {
-                data() {
-                    return {
-                        [VARS.dSubs]: {
-                            destroyed: false,
-                            keys: [],
-                            subscriptions: []
-                        }
-                    }
-                },
-                watch: {
-                    [VARS.$subs]: {
-                        immediate: true,
-                        handler(v, ov) {
-                            if(lodash.isEqual(v, ov) || (!v && !ov)) {
-                                return
-                            }
+        return modules
+    },
+    install(VuePtr, opts) {
+        const mods = HELPERS.getMods(opts)
+        const modules = lodash.reduce(mods, (acc, { name, subFn }) => {
+            acc[name || '$subs'] = subscriptionStoreModule(subFn)
+            return acc
+        }, {})
 
-                            const dSubs = this[VARS.dSubs]
-                            try {
-                                const flattened = HELPERS.toFlat(v)
-                                if(!lodash.isEqual(flattened, dSubs.subscriptions)) {
-                                    dSubs.keys = lodash.keys(v)
-                                    dSubs.subscriptions = flattened
-                                }
-                            } catch(e) {
-                                console.error(`Could not form subscriptions`)
-                                throw e
-                            }
-                        }
-                    },
-                    [VARS.dSubs_subscriptions]: {
-                        immediate: true,
-                        async handler(v, ov) {
-                            if(lodash.isEqual(v, ov) || (!v && !ov)) {
-                                return
-                            }
+        const store = new Vuex.Store({ modules })
 
-                            const instanceId = lodash.get(this, "_uid")
-                            try {
-                                const addSubs = lodash.differenceWith(v, ov, lodash.isEqual)
-                                const removeSubs = lodash.differenceWith(ov, v, lodash.isEqual)
-
-                                if(removeSubs.length) {
-                                    const unsubPromises = removeSubs.map(path => subscriptionStore.dispatch('unsubscribe', { instanceId,  path }))
-                                    await Promise.all(unsubPromises)
-                                }
-                                if(addSubs.length) {
-                                    const subPromises = addSubs.map(path => subscriptionStore.dispatch('subscribe', { instanceId,  path }))
-                                    await Promise.all(subPromises)
-                                }
-                            } catch(e) {
-                                console.error("Failed to sub or unsub. Resetting $subs instance", this[VARS.$subs])
-                                this[VARS.dSubs].subscriptions = []
-                                throw e
-                            }
-                        }
-                    }
-                },
-                beforeDestroy() {
-                    const dSubs = this[VARS.dSubs]
-                    dSubs.destroyed = true
-                    if (dSubs.subscriptions) {
-                        const instanceId = lodash.get(this, "_uid")
-                        lodash.each(dSubs.subscriptions, path => subscriptionStore.dispatch('unsubscribe', { instanceId,  path }))
-                    }
-                },
-                computed: {
-                    [VARS.$subData]() {
-                        const { destroyed, keys, subscriptions } = this[VARS.dSubs]
-                        if(destroyed || !subscriptions || !subscriptions.length || !keys || !keys.length) {
-                            return {}
-                        }
-
-                        const data = {}
-                        const storeData = subscriptionStore.getters.all
-                        lodash.each(subscriptions, (v, idx) => {
-                            try {
-                                const path = lodash.isObject(v) ? Stringify(v) : v
-                                const key = keys[idx]
-                                data[key] = storeData[path]
-                            } catch(e) {
-                                console.error(e)
-                            }
-                        })
-                        return data
-                    }
-                }
+        lodash.each(mods, ({ name }) => {
+            // create new store for subscriptions
+            const VARS = {
+                dSubs: name ? `${name}_dSubs` : `dSubs`,
+                $subs: name ? `$${name}_subs` : `$subs`,
+                $subData: name ? `$${name}_subData` : `$subData`,
+                dSubs_subscriptions: name ? `${name}_dSubs.subscriptions` : `dSubs.subscriptions`
             }
 
-            Vue.mixin(mixin)
+            VuePtr.mixin(HELPERS.getMixin(VARS, store, name || '$subs'))
         })
     }
 }

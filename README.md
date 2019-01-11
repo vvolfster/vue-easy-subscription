@@ -5,12 +5,14 @@ Quick and modular subscriptions for vue!
 # Installation
 	
 	npm i vue-easy-subscription
-
-    // This module requires that Vue and Vuex as peer dependencies!
-    // npm i vue
-    // npm i vuex
+	// NOTE: This library requires Vue and Vuex as peer dependencies!
 
 # Initialization
+There are 2 main ways to use library:
+
+### A) As a Vue Plugin
+In this scenario, a Vuex store will be created for you by default! Use option B if you wish to integrate it into an already existing Vuex store.
+
 You can initialize the plugin in one of the following ways:
 
 1. Initialize with firestore. The subscription function for firestore is already in the lib:
@@ -57,6 +59,24 @@ Vue.use(vueEasySub, { sub: yourSubFn(path, updateValueFn) })
 	}
 */
 ```
+### B) As Vuex store module
+Use this method if you wish to integrate into an already existing Vuex Store. It is very similar to using method A.
+
+```javascript
+import Vue from "vue"
+import Vuex from "vuex"
+import VueEasySub from "vue-easy-subscription"
+
+const easySubModules = VueEasySub.getVuexModules(Vue, { sub: yourSubFn(path, updateValueFn) })
+const store = new Vuex.Store({
+	modules: {
+		...easySubModules,
+		yourStoreModuleA,
+		yourStoreModuleB,
+	}
+})
+```
+
 
 # Usage
 Usage of this lib is very simple and powerful.

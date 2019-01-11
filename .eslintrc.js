@@ -5,10 +5,14 @@ module.exports = {
     },
     extends: ["plugin:vue/essential", "@vue/airbnb"],
     rules: {
+        // don't require .vue extension when importing
         "import/extensions": [
             "error",
-            "always",z
-            { js: "never",}
+            "always",
+            {
+                js: "never",
+                vue: "never"
+            }
         ],
         // disallow reassignment of function parameters
         // disallow parameter object manipulation except for specific exclusions
@@ -84,6 +88,7 @@ module.exports = {
         "semi": "off",
         // allow debugger during development
         "no-debugger": process.env.NODE_ENV === "production" ? 2 : 0,
+        "vue/max-attributes-per-line": "off"
     },
     parserOptions: {
         parser: "babel-eslint"
