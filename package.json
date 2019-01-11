@@ -1,0 +1,43 @@
+{
+  "name": "vue-easy-subscription",
+  "version": "0.1.0",
+  "description": "Quick and easy subscriptions for vue!",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vvolfster/vue-easy-subscription.git"
+  },
+  "keywords": [
+    "vue",
+    "firebase",
+    "firestore",
+    "subscription",
+    "vuex"
+  ],
+  "dependencies": {
+    "lodash": "^4.17.11",
+    "json-stable-stringify": "^1.0.1"
+  },
+  "devDependencies": {
+    "eslint": "^5.8.0",
+    "eslint-config-airbnb": "^5.0.0",
+    "babel-eslint": "^10.0.1",
+    "eslint-plugin-vue": "^5.0.0",
+    "@vue/cli-plugin-eslint": "^3.2.0",
+    "vue": "^2.5.21",
+    "vuex": "^3.0.1"
+  },
+  "peerDependencies": {
+    "vue": "2.x",
+    "vuex": "3.x"
+  },
+  "author": "Shahan Kazi",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vvolfster/vue-easy-subscription/issues"
+  },
+  "homepage": "https://github.com/vvolfster/vue-easy-subscription#readme"
+}
