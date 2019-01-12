@@ -17,7 +17,9 @@ const listeners = {
     },
     documentListener: async (snapshot, value) => {
         const v = await snapshot.data()
-        v.id = snapshot.id
+        if (v) {
+            v.id = snapshot.id
+        }
         value(v)
     }
 }
