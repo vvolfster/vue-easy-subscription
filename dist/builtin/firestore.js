@@ -54,14 +54,15 @@ function getSubFn(firestore) {
                 throw new Error(`Cannot subscribe because collection is not a string! ${JSON.stringify(path)}`)
             }
 
-            const fsCollection = firestore.collection(collection)
+            let fsCollection = firestore.collection(collection)
             if (!where || !lodash.isArray(where) || !where.length || !lodash.every(where, arr => arr.length === 3)) {
                 return fsCollection.onSnapshot(snap => listeners.collectionListener(snap, value))
             }
 
+            // console.log(`Did the wheres!`)
             lodash.each(where, (arr) => {
                 const [field, opStr, val] = arr
-                fsCollection.where(field, opStr, val)
+                fsCollection = fsCollection.where(field, opStr, val)
             })
 
             return fsCollection.onSnapshot(snap => listeners.collectionListener(snap, value))
