@@ -147,7 +147,11 @@ the library will automatically unsubscribe from pets/1
 
 #### non-string subscriptions  (firestore example)
 This example illustrates that the paths dont need to simple strings. As long as they are JSON serialiazible, any path is ok!
+The builtin firestore subscription function gives support for OR queries!! Firestore, by itself does not have that.
+
 ```javascript
+// In the example below, the where query would read as:
+// (ownerId === this.ownerId) AND (type === 'DOG' OR type === 'CAT')
 {
 	props: ['ownerId'],
 	computed: {
@@ -155,7 +159,10 @@ This example illustrates that the paths dont need to simple strings. As long as 
 			return {
 			    pets: {
 			        collection: "pet",
-			        where: [["ownerId", "==", this.ownerId]]
+			        where: [
+                        ["ownerId", "==", this.ownerId],
+                        { or: [['type', '==', 'dog'], ['type', '==', 'cat']] }
+                    ]
 			    }
 			}
 		},
