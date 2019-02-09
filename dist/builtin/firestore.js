@@ -1,5 +1,5 @@
-const lodash = require('lodash')
-// import lodash from "lodash"
+// const lodash = require('lodash')
+import lodash from "lodash"
 
 const listeners = {
     collectionListener: async (snap, value) => {
@@ -154,11 +154,20 @@ function getSubFn(firestore) {
             }
 
             // create a magical value function for the array!
+            const arr = []
+            const depositValue = (v, idx) => {
+                arr[idx] = v
+                value(arr.filter(Boolean))
+            }
 
-            // and a magical unsub function
-
-
-
+            const allUnsubs = path.map((str, idx) => listeners.singleSub(firestore, str, v => depositValue(v, idx)))
+            
+            const singleUnsub = () => {
+                const promises = allUnsubs.map(fn => fn())
+                return Promise.all(promises)
+            }
+            
+            return singleUnsub
         }
 
         if (lodash.isObject(path)) {
@@ -180,5 +189,5 @@ function getSubFn(firestore) {
     return sub
 }
 
-module.exports = { getSubFn }
-// export default { getSubFn }
+// module.exports = { getSubFn }
+export default { getSubFn }
