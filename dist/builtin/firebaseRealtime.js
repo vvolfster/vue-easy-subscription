@@ -32,16 +32,16 @@ function getSubFn(database) {
             const arr = []
             const depositValue = (v, idx) => {
                 arr[idx] = v
-                value(arr.filter(Boolean))
+                value(arr.filter(a => !lodash.isNil(a)))
             }
 
             const allUnsubs = path.map((str, idx) => singleSub(database, str, v => depositValue(v, idx)))
-            
+
             const singleUnsub = () => {
                 const promises = allUnsubs.map(fn => fn())
                 return Promise.all(promises)
             }
-            
+
             return singleUnsub
         }
 

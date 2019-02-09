@@ -157,7 +157,7 @@ function getSubFn(firestore) {
             const arr = []
             const depositValue = (v, idx) => {
                 arr[idx] = v
-                value(arr.filter(Boolean))
+                value(arr.filter(a => !lodash.isNil(a)))
             }
 
             const allUnsubs = path.map((str, idx) => listeners.singleSub(firestore, str, v => depositValue(v, idx)))
