@@ -1,4 +1,5 @@
-import lodash from "lodash"
+const lodash = require('lodash')
+// import lodash from "lodash"
 
 const listeners = {
     collectionListener: async (snap, value) => {
@@ -21,6 +22,23 @@ const listeners = {
             v.id = snapshot.id
         }
         value(v)
+    },
+    singleSub(firestore, path, value) {
+        const flat = lodash.compact(path.split("/"))
+        if (flat.length < 1) {
+            throw new Error(`Cannot subscribe to ${path}. Minimum path len is 1!`)
+        }
+
+        const listenerFn = flat.length % 2 === 0 ? listeners.documentListener : listeners.collectionListener
+        const ref = lodash.reduce(flat, (acc, name, idx) => {
+            if (idx === 0) {
+                return firestore.collection(name);
+            }
+
+            return idx % 2 === 0 ? acc.collection(name) : acc.doc(name)
+        }, null)
+
+        return ref.onSnapshot(snapshot => listenerFn(snapshot, value))
     }
 }
 
@@ -31,21 +49,20 @@ function getSubFn(firestore) {
         }
 
         if (lodash.isString(path)) {
-            const flat = lodash.compact(path.split("/"))
-            if (flat.length < 1) {
-                throw new Error(`Cannot subscribe to ${path}. Minimum path len is 1!`)
+            return listeners.singleSub(firestore, path, value)
+        }
+
+        if (lodash.isArray(path)) {
+            if (!lodash.every(path, lodash.isString)) {
+                throw new Error(`Cannot subscribe because each member of the array isn't a string!`)
             }
 
-            const listenerFn = flat.length % 2 === 0 ? listeners.documentListener : listeners.collectionListener
-            const ref = lodash.reduce(flat, (acc, name, idx) => {
-                if (idx === 0) {
-                    return firestore.collection(name);
-                }
+            // create a magical value function for the array!
 
-                return idx % 2 === 0 ? acc.collection(name) : acc.doc(name)
-            }, null)
+            // and a magical unsub function
 
-            return ref.onSnapshot(snapshot => listenerFn(snapshot, value))
+
+
         }
 
         if (lodash.isObject(path)) {
@@ -73,4 +90,5 @@ function getSubFn(firestore) {
     return sub
 }
 
-export default { getSubFn }
+module.exports = { getSubFn }
+// export default { getSubFn }
