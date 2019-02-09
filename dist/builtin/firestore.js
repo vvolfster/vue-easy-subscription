@@ -42,6 +42,102 @@ const listeners = {
     }
 }
 
+function whereIsValid(where) {
+    if (!where || !lodash.isArray(where) || !where.length) {
+        return false
+    }
+
+    return lodash.every(where, (entry) => {
+        if (lodash.isArray(entry)) {
+            return entry.length === 3
+        }
+        if (lodash.isObject(entry)) {
+            if (!entry.or) {
+                return false
+            }
+            return lodash.every(entry.or, arr => lodash.isArray(arr) && arr.length === 3)
+        }
+        return false
+    })
+}
+
+function getWhereSets(fsCollection, where, value) {
+    const blankUnsub = () => true
+    const unsubFns = []
+    const state = {
+        and: null,
+        or: {}
+    }
+    const ands = where.filter(w => lodash.isArray(w))
+    const ors = where.filter(w => lodash.isObject(w) && w.or).map(w => w.or)
+
+    function emitValue() {
+        const andReady = !ands.length || state.and !== null
+        const orsReady = !ors.length || (lodash.keys(state.or).length === ors.length && lodash.every(state.or, or => lodash.every(or, o => o !== null)))
+
+        if (!andReady || !orsReady) {
+            return
+        }
+
+        const sets = ands.length ? [state.and] : []
+        lodash.each(state.or, (arrays) => {
+            const flattenedOnce = lodash.flattenDepth(arrays, 1)
+            const set = lodash.uniqBy(flattenedOnce, i => i.id)
+            sets.push(set)
+        })
+
+        const intersecting = lodash.intersectionBy(...sets, i => i.id)
+        const asObject = lodash.reduce(intersecting, (acc, v) => {
+            acc[v.id] = v
+            return acc
+        }, {})
+
+        // const setOnlyIds = sets.map(s => s.map(i => i.id))
+        // console.log('emit value', setOnlyIds)
+        value(asObject)
+    }
+
+    function getQuery(wheres, fn) {
+        if (wheres && wheres.length) {
+            const query = lodash.reduce(wheres, (acc, arr) => {
+                const [field, opStr, val] = arr
+                return acc.where(field, opStr, val)
+            }, fsCollection)
+            return query.onSnapshot(snap => listeners.collectionListener(snap, fn))
+        }
+        fn([])
+        return blankUnsub
+    }
+
+    const andUnsub = getQuery(ands, (result) => {
+        state.and = lodash.values(result)
+        emitValue()
+    })
+
+    unsubFns.push(andUnsub)
+
+    lodash.each(ors, (arr, outerIdx) => {
+        lodash.each(arr, (singleWhere, innerIdx) => {
+            const name = `entry${outerIdx}[${innerIdx}]`
+            lodash.set(state.or, name, null)
+
+            const unsub = getQuery([singleWhere], (result) => {
+                lodash.set(state.or, name, lodash.values(result))
+                emitValue()
+            })
+            unsubFns.push(unsub)
+        })
+    }, [])
+
+    function unsubAll() {
+        const promises = unsubFns.map(fn => fn())
+        return Promise.all(promises)
+    }
+
+    return unsubAll
+}
+
+
 function getSubFn(firestore) {
     const sub = async (path, value) => {
         if(!path) {
@@ -71,18 +167,12 @@ function getSubFn(firestore) {
                 throw new Error(`Cannot subscribe because collection is not a string! ${JSON.stringify(path)}`)
             }
 
-            let fsCollection = firestore.collection(collection)
-            if (!where || !lodash.isArray(where) || !where.length || !lodash.every(where, arr => arr.length === 3)) {
+            const fsCollection = firestore.collection(collection)
+            if (!whereIsValid(where)) {
                 return fsCollection.onSnapshot(snap => listeners.collectionListener(snap, value))
             }
 
-            // console.log(`Did the wheres!`)
-            lodash.each(where, (arr) => {
-                const [field, opStr, val] = arr
-                fsCollection = fsCollection.where(field, opStr, val)
-            })
-
-            return fsCollection.onSnapshot(snap => listeners.collectionListener(snap, value))
+            return getWhereSets(fsCollection, where, value)
         }
 
         throw new Error(`path must be a string or an object!`)
