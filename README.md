@@ -67,7 +67,7 @@ import Vue from "vue"
 import Vuex from "vuex"
 import VueEasySub from "vue-easy-subscription"
 
-const easySubModules = VueEasySub.getVuexModules(Vue, { sub: yourSubFn(path, updateValueFn) })
+const easySubModules = VueEasySub.getVuexStoreModules(Vue, { sub: yourSubFn(path, updateValueFn) })
 const store = new Vuex.Store({
 	modules: {
 		...easySubModules,
